@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rental Property ROI Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Include Chart.js for the comparison graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Custom scrollbar style for the amortization table */
+        #yearlyTableContainer, #stockTableAContainer, #stockTableBContainer {
+            overflow-x: auto;
+        }
+        #yearlyTableContainer::-webkit-scrollbar, #stockTableAContainer::-webkit-scrollbar, #stockTableBContainer::-webkit-scrollbar {
+            height: 8px;
+        }
+        #yearlyTableContainer::-webkit-scrollbar-thumb, #stockTableAContainer::-webkit-scrollbar-thumb, #stockTableBContainer::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        #yearlyTableContainer::-webkit-scrollbar-track, #stockTableAContainer::-webkit-scrollbar-track, #stockTableBContainer::-webkit-scrollbar-track {
+            background: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <!-- Increased max-width to 6xl for a bigger layout and chart -->
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-6xl transform transition-transform duration-300">
+        <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-2">Rental Property Investment Analysis</h1>
+        <p class="text-center text-gray-500 mb-8">Compare Real Estate vs. Stock Market ROI</p>
+
+        <!-- Main Input Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <!-- 1. Property Inputs -->
+            <div class="p-4 border border-blue-200 rounded-lg bg-blue-50">
+                <h2 class="text-lg font-semibold text-blue-800 mb-3 border-b pb-2">1. Property & Value</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label for="purchasePrice" class="block text-sm font-medium text-gray-700">Purchase Price ($)</label>
+                        <input type="number" id="purchasePrice" value="400000" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="yearsHeld" class="block text-sm font-medium text-gray-700">Years Held (N)</label>
+                        <input type="number" id="yearsHeld" value="20" step="1" min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="appreciationRate" class="block text-sm font-medium text-gray-700">Annual Appreciation (%)</label>
+                        <input type="number" id="appreciationRate" value="2.0" step="0.1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Financing & Investment (UPDATED) -->
+            <div class="p-4 border border-green-200 rounded-lg bg-green-50">
+                <h2 class="text-lg font-semibold text-green-800 mb-3 border-b pb-2">2. Investment & Loans</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label for="downPaymentValue" class="block text-sm font-medium text-gray-700">Down Payment</label>
+                         <div class="flex items-center mt-1">
+                            <input type="number" id="downPaymentValue" value="25" class="w-2/3 px-3 py-2 border border-gray-300 rounded-l-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                            <select id="downPaymentType" class="w-1/3 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg bg-gray-50 focus:ring-green-500 focus:border-green-500">
+                                <option value="percent" selected>%</option>
+                                <option value="usd">$</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="initialCash" class="block text-sm font-medium text-gray-700">Portion of DP from Cash ($)</label>
+                        <input type="number" id="initialCash" value="25000" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label for="mortgageRate" class="block text-sm font-medium text-gray-700">Mortgage Rate (%) & Term (Yrs)</label>
+                        <div class="flex space-x-2 mt-1">
+                            <input type="number" id="mortgageRate" value="6.0" step="0.1" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                            <input type="number" id="mortgageTerm" value="30" step="1" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                        </div>
+                    </div>
+                    <div id="calculatedMortgageDisplay" class="text-sm font-medium text-gray-700 bg-green-100 p-2 rounded-md">
+                        Primary Mortgage: $0
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Income & Sale -->
+            <div class="p-4 border border-purple-200 rounded-lg bg-purple-50">
+                <h2 class="text-lg font-semibold text-purple-800 mb-3 border-b pb-2">3. Income & Sale</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label for="monthlyRent" class="block text-sm font-medium text-gray-700">Monthly Rent Income ($)</label>
+                        <input type="number" id="monthlyRent" value="1800" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label for="annualExpenses" class="block text-sm font-medium text-gray-700">Annual Op. Expenses ($)</label>
+                        <input type="number" id="annualExpenses" value="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500">
+                        <p class="text-xs text-gray-500 mt-1">Taxes, Insurance, Maint., Vacancy.</p>
+                    </div>
+                    <div>
+                        <label for="sellingCosts" class="block text-sm font-medium text-gray-700">Selling Costs (%)</label>
+                        <input type="number" id="sellingCosts" value="6.0" step="0.1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label for="capitalGainsTax" class="block text-sm font-medium text-gray-700">Property Capital Gains Tax (%)</label>
+                        <input type="number" id="capitalGainsTax" value="15.0" step="0.1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Stock Investment (UPDATED SECTION) -->
+            <div class="p-4 border border-orange-200 rounded-lg bg-orange-50">
+                <h2 class="text-lg font-semibold text-orange-800 mb-3 border-b pb-2">4. Stock Scenarios</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label for="stockCapitalA" class="block text-sm font-medium text-gray-700">Scenario A Capital ($)</label>
+                        <input type="number" id="stockCapitalA" placeholder="Defaults to Initial Cash" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                     <div>
+                        <label for="stockCapitalB" class="block text-sm font-medium text-gray-700">Scenario B Capital ($)</label>
+                        <input type="number" id="stockCapitalB" placeholder="Defaults to Cash + HELOC" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label for="stockAnnualReturnRate" class="block text-sm font-medium text-gray-700">Annual Market Return (%)</label>
+                        <input type="number" id="stockAnnualReturnRate" value="10.0" step="0.1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label for="stockTaxRate" class="block text-sm font-medium text-gray-700">Stock Capital Gains Tax (%)</label>
+                        <input type="number" id="stockTaxRate" value="15.0" step="0.1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HELOC Financing (Optional) -->
+        <div class="mt-4 p-4 border border-yellow-200 rounded-lg bg-yellow-50 mb-8">
+            <h2 class="text-lg font-semibold text-yellow-800 mb-3 border-b pb-2">Optional: HELOC Financing (Portion of DP not from cash is used here)</h2>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div>
+                    <label for="helocAmount" class="block text-sm font-medium text-gray-700">HELOC Amount ($)</label>
+                    <input type="number" id="helocAmount" value="75000" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500 bg-gray-200" readonly>
+                </div>
+                <div>
+                    <label for="helocRate" class="block text-sm font-medium text-gray-700">HELOC Annual Rate (%)</label>
+                    <input type="number" id="helocRate" value="7.5" step="0.1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500">
+                </div>
+                <div>
+                    <label for="helocIOYears" class="block text-sm font-medium text-gray-700">Interest-Only (IO) Period (Yrs)</label>
+                    <input type="number" id="helocIOYears" value="10" step="1" min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500">
+                </div>
+                <div>
+                    <label for="helocRepaymentYears" class="block text-sm font-medium text-gray-700">Repayment (P&I) Period (Yrs)</label>
+                    <input type="number" id="helocRepaymentYears" value="10" step="1" min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500">
+                </div>
+                <div>
+                    <label for="additionalHelocPayment" class="block text-sm font-medium text-gray-700">Additional Monthly Principal Payment ($)</label>
+                    <input type="number" id="additionalHelocPayment" value="0" step="10" min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500">
+                </div>
+            </div>
+            <div id="helocTotalTermDisplay" class="text-sm font-medium text-gray-700 bg-yellow-100 p-2 rounded-md mt-4 text-center">
+                Total HELOC Term: 20 Years
+            </div>
+        </div>
+
+        <!-- Calculate Button -->
+        <div class="mt-4">
+            <button onclick="calculateROI()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-[1.01]">
+                Run Investment Analysis
+            </button>
+        </div>
+
+        <!-- Results Display -->
+        <div id="results" class="mt-10 p-6 bg-gray-50 rounded-xl border border-gray-200" style="display:none;">
+            <h2 class="text-2xl font-semibold text-center text-gray-800 mb-6">Investment Summary</h2>
+            
+            <div id="messageBox" class="p-4 text-center text-sm font-medium rounded-lg mb-6" style="display:none;"></div>
+
+            <!-- Comparison Chart (Bigger due to parent max-w-6xl and fixed height) -->
+            <h3 class="text-xl font-semibold text-gray-800 mt-4 mb-4 text-center border-b pb-2">Yearly Cumulative ROI Comparison (%)</h3>
+            <div class="bg-white p-4 rounded-lg shadow-md mb-8 h-[400px]">
+                <canvas id="roiComparisonChart"></canvas>
+            </div>
+
+            <!-- Summary Table (Updated for 3 Scenarios) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 text-center mb-8">
+                <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-indigo-500 col-span-2">
+                    <p class="text-sm text-gray-500">Initial Cash Investment</p>
+                    <p id="summaryInitialInvestment" class="text-2xl font-bold text-gray-800">$0</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-green-500">
+                    <p class="text-sm text-gray-500">Rental Net Profit</p>
+                    <p id="summaryRentalProfit" class="text-xl font-bold text-green-700">$0</p>
+                    <p id="summaryRentalROI" class="text-sm font-bold text-green-500">0.0% ROI</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-orange-500">
+                    <p class="text-sm text-gray-500">Stock Net Profit (Cash Only)</p>
+                    <p id="summaryStockAProfit" class="text-xl font-bold text-orange-700">$0</p>
+                    <p id="summaryStockAROI" class="text-sm font-bold text-orange-500">0.0% ROI</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-pink-500 col-span-2">
+                    <p class="text-sm text-gray-500">Stock Net Profit (Cash + HELOC)</p>
+                    <p id="summaryStockBProfit" class="text-xl font-bold text-pink-700">$0</p>
+                    <p id="summaryStockBROI" class="text-sm font-bold text-pink-500">0.0% ROI</p>
+                </div>
+            </div>
+            
+            <!-- Rental Property Table -->
+            <h3 class="text-xl font-semibold text-gray-800 mt-8 mb-4">1. Rental Property Projection (<span id="heldYears">N</span> years)</h3>
+            <div id="yearlyTableContainer" class="overflow-x-auto border rounded-lg shadow-inner">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Year</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Property Value</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Mortgage Interest</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Mortgage Principal</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">HELOC Interest</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">HELOC Principal</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Mortgage Balance</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">HELOC Balance</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Net Cash Flow (Yearly)</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Net Equity (Prop. Value - Debt)</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Total Net Gain if Sold</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Cumulative ROI (%)</th> 
+                        </tr>
+                    </thead>
+                    <tbody id="yearlyTableBody" class="bg-white divide-y divide-gray-200 text-sm">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Stock Investment Table A (Cash Only) -->
+            <h3 class="text-xl font-semibold text-gray-800 mt-8 mb-4">2. Stock Investment Scenario A: (<span id="capA" class="text-orange-600">N</span> Starting Capital)</h3>
+            <div id="stockTableAContainer" class="overflow-x-auto border rounded-lg shadow-inner">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Year</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Starting Value</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Ending Value</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Total Net Gain (Post-Tax)</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Cumulative ROI (%)</th> 
+                        </tr>
+                    </thead>
+                    <tbody id="stockTableABody" class="bg-white divide-y divide-gray-200 text-sm">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Stock Investment Table B (Cash + HELOC) -->
+            <h3 class="text-xl font-semibold text-gray-800 mt-8 mb-4">3. Stock Investment Scenario B: (<span id="capB" class="text-pink-600">N</span> Starting Capital)</h3>
+            <div id="stockTableBContainer" class="overflow-x-auto border rounded-lg shadow-inner">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Year</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Starting Value</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Ending Value</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">HELOC Interest Cost (Cumulative)</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">HELOC Balance Remaining</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Total Net Gain (Post-Tax & Cost)</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Cumulative ROI (%)</th> 
+                        </tr>
+                    </thead>
+                    <tbody id="stockTableBBody" class="bg-white divide-y divide-gray-200 text-sm">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let myChart = null; // Global variable to hold the Chart.js instance
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Setup event listeners for dynamic calculation
+            const inputsToWatch = ['purchasePrice', 'downPaymentValue', 'downPaymentType', 'initialCash'];
+            inputsToWatch.forEach(id => {
+                document.getElementById(id).addEventListener('input', updateFinancials);
+            });
+            // Initial calculation on load
+            updateFinancials();
+        });
+
+
+        function updateFinancials() {
+            const purchasePrice = parseFloat(document.getElementById('purchasePrice').value) || 0;
+            const downPaymentValue = parseFloat(document.getElementById('downPaymentValue').value) || 0;
+            const downPaymentType = document.getElementById('downPaymentType').value;
+            const initialCash = parseFloat(document.getElementById('initialCash').value) || 0;
+
+            let totalDownPayment = 0;
+            if (downPaymentType === 'percent') {
+                totalDownPayment = purchasePrice * (downPaymentValue / 100);
+            } else {
+                totalDownPayment = downPaymentValue;
+            }
+
+            const calculatedHeloc = totalDownPayment - initialCash;
+            const finalHelocAmount = Math.max(0, calculatedHeloc);
+
+            document.getElementById('helocAmount').value = finalHelocAmount.toFixed(0);
+
+            // Update placeholders for stock capital inputs
+            const stockAInput = document.getElementById('stockCapitalA');
+            const stockBInput = document.getElementById('stockCapitalB');
+            
+            const defaultStockA = initialCash;
+            const defaultStockB = initialCash + finalHelocAmount;
+
+            stockAInput.placeholder = `Default: ${formatCurrency(defaultStockA)}`;
+            stockBInput.placeholder = `Default: ${formatCurrency(defaultStockB)}`;
+        }
+
+        // Helper function to format currency, rounding to the nearest dollar
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(Math.round(amount));
+        }
+
+        // Helper function to format percentage
+        function formatPercent(rate) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'percent',
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1
+            }).format(rate / 100);
+        }
+
+        // Displays error or warning messages in the designated box
+        function showMessage(message, type = 'error') {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.textContent = message;
+            messageBox.style.display = 'block';
+            if (type === 'error') {
+                messageBox.classList.remove('bg-yellow-100', 'text-yellow-800');
+                messageBox.classList.add('bg-red-100', 'text-red-800');
+            } else {
+                // Use yellow for warnings
+                messageBox.classList.remove('bg-red-100', 'text-red-800');
+                messageBox.classList.add('bg-yellow-100', 'text-yellow-800');
+            }
+        }
+
+        /**
+         * Calculates the monthly payment for a fixed-rate P&I loan.
+         */
+        function calculateMonthlyPayment(principal, annualRate, termYears) {
+            const monthlyRate = annualRate / 12 / 100;
+            const termMonths = termYears * 12;
+
+            if (principal <= 0 || monthlyRate === 0 || termMonths <= 0) {
+                return 0;
+            }
+            
+            const numerator = principal * monthlyRate * Math.pow(1 + monthlyRate, termMonths);
+            const denominator = Math.pow(1 + monthlyRate, termMonths) - 1;
+
+            return numerator / denominator;
+        }
+
+        /**
+         * Calculates the yearly compounding growth for a stock investment,
+         * optionally deducting the annual HELOC interest cost.
+         * * @param {number} startingInvestment - The total capital deployed (Cash, or Cash + HELOC).
+         * @param {number} initialCashDenom - The investor's initial cash only (for ROI denominator).
+         * @param {number} annualRate - Annual return rate of the investment.
+         * @param {number} yearsHeld - Total investment period.
+         * @param {number} taxRate - Capital gains tax rate.
+         * @param {number} helocAmount - Total HELOC principal used.
+         * @param {number} helocRate - Annual HELOC interest rate (decimal).
+         * @param {number} helocIOYears - Interest-Only period.
+         * @param {number} helocRYears - Repayment period.
+         * @param {number} additionalHelocPayment - Extra monthly payment on HELOC principal.
+         * @param {boolean} includeHelocCost - Flag to track and deduct HELOC costs (Scenario B).
+         */
+        function calculateStockProjection(
+            startingInvestment, 
+            initialCashDenom, 
+            annualRate, yearsHeld, taxRate,
+            helocAmount, helocRate, helocIOYears, helocRYears, additionalHelocPayment,
+            includeHelocCost
+        ) {
+            const rate = annualRate / 100;
+            const stockProjection = [];
+            // totalCapitalInjected is the cost basis for calculating raw gain (ending value - cost basis)
+            const totalCapitalInjected = startingInvestment; 
+            let currentBalance = startingInvestment; // Balance at the *start* of the compounding year
+            
+            // HELOC Cost tracking (only relevant if includeHelocCost is true)
+            let currentHelocBalance = includeHelocCost ? helocAmount : 0;
+            let totalHelocInterestPaid = 0;
+            const helocTerm = helocIOYears + helocRYears;
+            
+            // Calculate repayment amount only if needed for amortization
+            const helocMonthlyRepayment = calculateMonthlyPayment(helocAmount, helocRate * 100, helocRYears);
+
+
+            for (let year = 1; year <= yearsHeld; year++) {
+                
+                const startingValue = currentBalance; // Value before gain
+                
+                // 1. Calculate Stock Growth
+                const annualGain = startingValue * rate;
+                const endingValue = startingValue + annualGain;
+                
+                // Update balance for next iteration
+                currentBalance = endingValue;
+                
+                // 2. Calculate HELOC Interest Cost for this Year (Only if funds were borrowed AND we are including the cost)
+                let annualHelocInterestPaid = 0;
+                let annualHelocPrincipalPaid = 0;
+
+                if (includeHelocCost && currentHelocBalance > 0 && helocTerm > 0) {
+                    let tempHelocBalance = currentHelocBalance;
+                    const monthlyHelocRate = helocRate / 12;
+                    const monthlyHelocExtraPrincipal = additionalHelocPayment;
+
+                    for (let month = 1; month <= 12; month++) {
+                        if (tempHelocBalance <= 0) break;
+
+                        const monthlyInterest = tempHelocBalance * monthlyHelocRate;
+                        annualHelocInterestPaid += monthlyInterest;
+                        
+                        let monthlyScheduledPrincipal = 0;
+                        
+                        if (year > helocIOYears && year <= helocTerm) { 
+                            const scheduledPayment = helocMonthlyRepayment; 
+                            monthlyScheduledPrincipal = Math.max(0, scheduledPayment - monthlyInterest);
+                        } 
+                        
+                        let totalMonthlyPrincipalPaid = monthlyScheduledPrincipal + monthlyHelocExtraPrincipal;
+                        
+                        // Adjust if total payment exceeds balance
+                        totalMonthlyPrincipalPaid = Math.min(totalMonthlyPrincipalPaid, tempHelocBalance);
+
+                        annualHelocPrincipalPaid += totalMonthlyPrincipalPaid;
+                        tempHelocBalance -= totalMonthlyPrincipalPaid;
+                    }
+                    currentHelocBalance = tempHelocBalance;
+                    totalHelocInterestPaid += annualHelocInterestPaid;
+                }
+
+                // 3. Calculate Final Net Gain 
+                
+                // Total gain (pre-tax) is the total profit over the total injected capital (cost basis)
+                const totalGainPreTax = endingValue - totalCapitalInjected;
+                
+                // Calculate Stock Capital Gains Tax only on the raw profit
+                const capitalGainsTax = Math.max(0, totalGainPreTax * taxRate);
+                
+                // Calculate the total cost deduction (Tax + optional HELOC Interest)
+                let costDeduction = capitalGainsTax;
+                if (includeHelocCost) {
+                    // HELOC Interest is a direct cost reducing the net profit.
+                    costDeduction += totalHelocInterestPaid;
+                }
+                
+                let totalNetGain = totalGainPreTax - costDeduction;
+                
+                // 4. Cumulative ROI percentage MUST use the initialCashDenom provided for the denominator.
+                const cumulativeROI = initialCashDenom > 0 ? (totalNetGain / initialCashDenom) * 100 : 0;
+
+                stockProjection.push({
+                    year: year,
+                    startingValue: startingValue,
+                    endingValue: endingValue,
+                    totalNetGain: totalNetGain, 
+                    cumulativeROI: cumulativeROI,
+                    cumulativeHelocInterestCost: totalHelocInterestPaid,
+                    currentHelocBalance: currentHelocBalance
+                });
+            }
+            return stockProjection;
+        }
+
+
+        function calculateROI() {
+            // Force an update to ensure all derived values are current before calculation
+            updateFinancials();
+
+            // 1. Get Input Values and Rates (convert percentages to decimals)
+            const P = parseFloat(document.getElementById('purchasePrice').value) || 0;
+            const initialCash = parseFloat(document.getElementById('initialCash').value) || 0;
+            const yearsHeld = parseInt(document.getElementById('yearsHeld').value) || 0;
+            const annualAppreciationRate = parseFloat(document.getElementById('appreciationRate').value) / 100 || 0;
+            
+            const mortgageRate = parseFloat(document.getElementById('mortgageRate').value) || 0;
+            const mortgageTerm = parseInt(document.getElementById('mortgageTerm').value) || 0;
+            
+            // --- HELOC INPUTS ---
+            const helocAmount = parseFloat(document.getElementById('helocAmount').value) || 0;
+            const helocRate = parseFloat(document.getElementById('helocRate').value) / 100 || 0;
+            const helocIOYears = parseInt(document.getElementById('helocIOYears').value) || 0;
+            const helocRYears = parseInt(document.getElementById('helocRepaymentYears').value) || 0; 
+            const helocTerm = helocIOYears + helocRYears; // Total HELOC term
+            const additionalHelocPayment = parseFloat(document.getElementById('additionalHelocPayment').value) || 0; 
+            
+            // --- INCOME & SALE INPUTS ---
+            const monthlyRent = parseFloat(document.getElementById('monthlyRent').value) || 0;
+            const annualExpenses = parseFloat(document.getElementById('annualExpenses').value) || 0;
+            const sellingCostsPercent = parseFloat(document.getElementById('sellingCosts').value) / 100 || 0;
+            const capitalGainsTaxRate = parseFloat(document.getElementById('capitalGainsTax').value) / 100 || 0;
+            
+            // --- STOCK INPUTS ---
+            const stockAnnualReturnRate = parseFloat(document.getElementById('stockAnnualReturnRate').value); 
+            const stockTaxRate = parseFloat(document.getElementById('stockTaxRate').value) / 100 || 0;
+            
+            // Calculate Annual Rent from Monthly Input
+            const annualRent = monthlyRent * 12;
+            
+            document.getElementById('messageBox').style.display = 'none';
+
+            // 2. Initial Validation
+            if (P <= 0 || yearsHeld <= 0 || (initialCash <= 0 && helocAmount <= 0)) {
+                showMessage("Please ensure Purchase Price and Years Held are positive, and that there is either an Initial Cash Investment or a HELOC Amount.");
+                return;
+            }
+
+            // Show a warning if using HELOC as the investment basis for ROI, as this is a key assumption
+            if (initialCash <= 0 && helocAmount > 0) {
+                 showMessage(`Warning: With $0 initial cash, ROI percentages are calculated using the HELOC amount (${formatCurrency(helocAmount)}) as the investment basis.`, 'warning');
+            } else if (yearsHeld > helocTerm && helocAmount > 0) {
+                showMessage(`Warning: Years Held (${yearsHeld}) is greater than the Total HELOC term (${helocTerm} years). The HELOC is assumed to be fully paid off by year ${helocTerm} unless the remaining balance is listed in the final year.`, 'warning');
+            }
+            
+            // Define a dynamic ROI denominator that uses HELOC amount as a fallback if cash is zero
+            const roiDenominator = initialCash > 0 ? initialCash : helocAmount;
+
+            // Update HELOC total term display
+            document.getElementById('helocTotalTermDisplay').textContent = `Total HELOC Term: ${helocTerm} Years`;
+
+            // 3. Calculate Primary Mortgage Amount (Derived Input)
+            const calculatedMortgageAmount = P - initialCash - helocAmount;
+            const initialMortgageAmount = Math.max(0, calculatedMortgageAmount);
+            
+            document.getElementById('calculatedMortgageDisplay').textContent = `Primary Mortgage: ${formatCurrency(initialMortgageAmount)}`;
+
+            if (calculatedMortgageAmount < 0) {
+                 showMessage("Warning: Your Initial Cash and HELOC amount exceed the Purchase Price. The Primary Mortgage is set to $0.", 'warning');
+            }
+
+            // 4. Setup Initial Debt and Payment Variables
+            const mortgageMonthlyPayment = calculateMonthlyPayment(initialMortgageAmount, mortgageRate, mortgageTerm);
+            
+            let currentMortgageBalance = initialMortgageAmount;
+            let currentHelocBalance = helocAmount;
+            let runningCumulativeCashFlow = 0; 
+            
+            const yearlyProjection = [];
+            
+            const helocMonthlyRepayment = calculateMonthlyPayment(helocAmount, helocRate * 100, helocRYears);
+
+            for (let year = 1; year <= yearsHeld; year++) {
+                
+                const yearsOfCompounding = Math.max(0, year - 1); 
+                let currentPropertyValue = P * Math.pow(1 + annualAppreciationRate, yearsOfCompounding);
+                const noi = annualRent - annualExpenses;
+                
+                let annualMortgagePrincipalPaid = 0;
+                let annualMortgageInterestPaid = 0;
+                
+                if (currentMortgageBalance > 0) {
+                    let tempBalance = currentMortgageBalance; 
+                    for (let month = 1; month <= 12; month++) {
+                        const monthlyRate = mortgageRate / 12 / 100;
+                        const monthlyInterest = tempBalance * monthlyRate;
+                        let monthlyPrincipal = mortgageMonthlyPayment - monthlyInterest;
+                        if (tempBalance < monthlyPrincipal) {
+                            monthlyPrincipal = tempBalance; 
+                        }
+                        annualMortgagePrincipalPaid += monthlyPrincipal;
+                        annualMortgageInterestPaid += monthlyInterest;
+                        tempBalance -= monthlyPrincipal;
+                        if (tempBalance <= 0) break;
+                    }
+                    currentMortgageBalance = Math.max(0, currentMortgageBalance - annualMortgagePrincipalPaid);
+                }
+                const annualMortgagePayment = annualMortgagePrincipalPaid + annualMortgageInterestPaid;
+
+                let annualHelocPrincipalPaid = 0;
+                let annualHelocInterestPaid = 0;
+                
+                if (currentHelocBalance > 0 && helocTerm > 0) {
+                    let tempHelocBalance = currentHelocBalance;
+                    const monthlyHelocRate = helocRate / 12;
+                    const monthlyHelocExtraPrincipal = additionalHelocPayment;
+                    for (let month = 1; month <= 12; month++) {
+                        const monthlyInterest = tempHelocBalance * monthlyHelocRate;
+                        let monthlyScheduledPrincipal = 0;
+                        if (year > helocIOYears && year <= helocTerm) { 
+                            const scheduledPayment = helocMonthlyRepayment; 
+                            const principalPortion = scheduledPayment - monthlyInterest;
+                            monthlyScheduledPrincipal = Math.max(0, principalPortion);
+                        } 
+                        let totalMonthlyPrincipalPaid = monthlyScheduledPrincipal + monthlyHelocExtraPrincipal;
+                        const totalRequiredPayment = monthlyInterest + totalMonthlyPrincipalPaid;
+                        if (tempHelocBalance < totalRequiredPayment) {
+                            totalMonthlyPrincipalPaid = Math.max(0, tempHelocBalance - monthlyInterest);
+                        }
+                        annualHelocPrincipalPaid += totalMonthlyPrincipalPaid;
+                        annualHelocInterestPaid += monthlyInterest;
+                        tempHelocBalance -= totalMonthlyPrincipalPaid;
+                        if (tempHelocBalance <= 0) {
+                            tempHelocBalance = 0;
+                            break;
+                        }
+                    }
+                    currentHelocBalance = tempHelocBalance;
+                }
+                const annualHelocPayment = annualHelocPrincipalPaid + annualHelocInterestPaid; 
+
+                const totalAnnualDebtService = annualMortgagePayment + annualHelocPayment;
+                const totalDebtRemaining = currentMortgageBalance + currentHelocBalance;
+                const totalEquityValue = currentPropertyValue - totalDebtRemaining; 
+                const annualCashFlow = noi - totalAnnualDebtService;
+                runningCumulativeCashFlow += annualCashFlow;
+
+                const salePrice = currentPropertyValue;
+                const sellingCosts = salePrice * sellingCostsPercent;
+                const grossProceeds = salePrice - sellingCosts - totalDebtRemaining;
+                const preTaxProfit = grossProceeds + runningCumulativeCashFlow;
+                const nonStandardTaxableBase = preTaxProfit;
+                const capitalGainsTax = Math.max(0, nonStandardTaxableBase * capitalGainsTaxRate);
+                const totalCashReceived = preTaxProfit - capitalGainsTax;
+                const yearlyNetInvestmentGain = totalCashReceived - initialCash;
+                const yearlyROI = roiDenominator > 0 ? (yearlyNetInvestmentGain / roiDenominator) * 100 : 0;
+
+                yearlyProjection.push({
+                    year: year,
+                    propertyValue: currentPropertyValue,
+                    mortgageInterest: annualMortgageInterestPaid, 
+                    mortgagePrincipal: annualMortgagePrincipalPaid, 
+                    helocInterest: annualHelocInterestPaid, 
+                    helocPrincipal: annualHelocPrincipalPaid, 
+                    mortgageBalance: currentMortgageBalance, 
+                    helocBalance: currentHelocBalance,
+                    noi: noi,
+                    equityValue: totalEquityValue, 
+                    cashFlow: annualCashFlow,
+                    yearlyTotalProfitIfSold: yearlyNetInvestmentGain,
+                    yearlyROI: yearlyROI,
+                    totalCashReceived: totalCashReceived 
+                });
+            }
+            
+            // 6. Define Stock Investment Scenarios (with overrides)
+            const defaultStockA = initialCash;
+            const defaultStockB = initialCash + helocAmount;
+            const stockCapitalA = parseFloat(document.getElementById('stockCapitalA').value) || defaultStockA;
+            const stockCapitalB = parseFloat(document.getElementById('stockCapitalB').value) || defaultStockB;
+
+            // 7. Stock Investment Calculation (Now two scenarios)
+            const stockProjectionA = calculateStockProjection(
+                stockCapitalA, roiDenominator, stockAnnualReturnRate, yearsHeld, stockTaxRate,
+                helocAmount, helocRate, helocIOYears, helocRYears, additionalHelocPayment,
+                false
+            );
+
+            const stockProjectionB = calculateStockProjection(
+                stockCapitalB, roiDenominator, stockAnnualReturnRate, yearsHeld, stockTaxRate,
+                helocAmount, helocRate, helocIOYears, helocRYears, additionalHelocPayment,
+                true
+            );
+
+            // 8. Final Summary Analysis
+            const finalRentalData = yearlyProjection[yearsHeld - 1];
+            const finalStockAData = stockProjectionA[yearsHeld - 1];
+            const finalStockBData = stockProjectionB[yearsHeld - 1];
+            
+            const rentalNetGain = finalRentalData.yearlyTotalProfitIfSold; 
+            const rentalTotalROI = roiDenominator > 0 ? (rentalNetGain / roiDenominator) * 100 : 0;
+            
+            const stockANetGain = finalStockAData.totalNetGain;
+            const stockATotalROI = roiDenominator > 0 ? (stockANetGain / roiDenominator) * 100 : 0;
+
+            const stockBNetGain = finalStockBData.totalNetGain;
+            const stockBTotalROI = roiDenominator > 0 ? (stockBNetGain / roiDenominator) * 100 : 0; 
+
+            // 9. Display Results
+            document.getElementById('summaryInitialInvestment').textContent = formatCurrency(initialCash);
+            
+            document.getElementById('summaryRentalProfit').textContent = formatCurrency(rentalNetGain);
+            document.getElementById('summaryRentalROI').textContent = `${formatPercent(rentalTotalROI)} ROI`;
+            
+            document.getElementById('summaryStockAProfit').textContent = formatCurrency(stockANetGain);
+            document.getElementById('summaryStockAROI').textContent = `${formatPercent(stockATotalROI)} ROI`;
+            
+            document.getElementById('summaryStockBProfit').textContent = formatCurrency(stockBNetGain); 
+            document.getElementById('summaryStockBROI').textContent = `${formatPercent(stockBTotalROI)} ROI`; 
+            
+            document.getElementById('heldYears').textContent = yearsHeld;
+
+            // Update table headers
+            document.getElementById('capA').textContent = formatCurrency(stockCapitalA);
+            document.getElementById('capB').textContent = formatCurrency(stockCapitalB);
+            
+            document.getElementById('results').style.display = 'block';
+
+            // 10. Render Tables and Chart
+            renderRentalTable(yearlyProjection);
+            renderStockTable(stockProjectionA, 'stockTableABody', false); // Cash Only
+            renderStockTable(stockProjectionB, 'stockTableBBody', true); // Cash + HELOC
+            renderChart(yearlyProjection, stockProjectionA, stockProjectionB);
+        }
+
+        function renderRentalTable(data) {
+            const tableBody = document.getElementById('yearlyTableBody');
+            tableBody.innerHTML = ''; 
+
+            data.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.classList.add('hover:bg-indigo-50');
+                if (index % 2 !== 0) {
+                    tr.classList.add('bg-gray-50');
+                }
+
+                const cells = [
+                    row.year,
+                    formatCurrency(row.propertyValue),
+                    formatCurrency(row.mortgageInterest),
+                    formatCurrency(row.mortgagePrincipal),
+                    formatCurrency(row.helocInterest),
+                    formatCurrency(row.helocPrincipal),
+                    formatCurrency(row.mortgageBalance), 
+                    formatCurrency(row.helocBalance),   
+                    formatCurrency(row.cashFlow), 
+                    formatCurrency(row.equityValue), 
+                    formatCurrency(row.yearlyTotalProfitIfSold),
+                    formatPercent(row.yearlyROI)
+                ];
+
+                cells.forEach((cellText, cellIndex) => {
+                    const td = document.createElement('td');
+                    td.classList.add('px-4', 'py-2', 'whitespace-nowrap', 'text-gray-900');
+                    if (cellIndex > 0) {
+                        td.classList.add('text-right');
+                    } else {
+                        td.classList.add('text-left', 'font-medium');
+                    }
+                    td.textContent = cellText;
+                    tr.appendChild(td);
+                });
+
+                tableBody.appendChild(tr);
+            });
+        }
+
+        /**
+         * Renders the stock table.
+         * @param {Array<Object>} data The stock projection data.
+         * @param {string} tableBodyId The ID of the <tbody> element to populate.
+         * @param {boolean} isLeveraged True if HELOC cost columns should be included.
+         */
+        function renderStockTable(data, tableBodyId, isLeveraged) {
+            const tableBody = document.getElementById(tableBodyId);
+            tableBody.innerHTML = ''; 
+
+            data.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.classList.add('hover:bg-orange-50');
+                if (isLeveraged) {
+                    tr.classList.remove('hover:bg-orange-50');
+                    tr.classList.add('hover:bg-pink-50');
+                }
+                if (index % 2 !== 0) {
+                    tr.classList.add('bg-gray-50');
+                }
+
+                const cells = [
+                    row.year,
+                    formatCurrency(row.startingValue), 
+                    formatCurrency(row.endingValue),
+                ];
+                
+                // Add HELOC specific columns for the Leveraged scenario
+                if (isLeveraged) {
+                    cells.push(formatCurrency(row.cumulativeHelocInterestCost)); 
+                    cells.push(formatCurrency(row.currentHelocBalance));
+                }
+                
+                cells.push(formatCurrency(row.totalNetGain)); 
+                cells.push(formatPercent(row.cumulativeROI));
+
+
+                cells.forEach((cellText, cellIndex) => {
+                    const td = document.createElement('td');
+                    td.classList.add('px-4', 'py-2', 'whitespace-nowrap', 'text-gray-900', 'text-right');
+                    if (cellIndex === 0) {
+                        td.classList.remove('text-right');
+                        td.classList.add('text-left', 'font-medium');
+                    }
+                    td.textContent = cellText;
+                    tr.appendChild(td);
+                });
+
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function renderChart(rentalData, stockAData, stockBData) {
+            const ctx = document.getElementById('roiComparisonChart').getContext('2d');
+            
+            // Destroy existing chart instance if it exists
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            const years = rentalData.map(d => d.year);
+            const rentalROI = rentalData.map(d => d.yearlyROI);
+            const stockAROI = stockAData.map(d => d.cumulativeROI);
+            const stockBROI = stockBData.map(d => d.cumulativeROI);
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: years,
+                    datasets: [{
+                        label: '1. Rental Property Cumulative ROI (%)',
+                        data: rentalROI,
+                        borderColor: '#10B981', // Green
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 3,
+                    }, {
+                        label: '2. Stock Investment A ROI (%)',
+                        data: stockAROI,
+                        borderColor: '#F97316', // Orange
+                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 3,
+                    }, {
+                        label: '3. Stock Investment B (Leveraged) ROI (%)',
+                        data: stockBROI,
+                        borderColor: '#EC4899', // Pink
+                        backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 3,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Cumulative ROI (%)'
+                            },
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 20
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Year'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+
